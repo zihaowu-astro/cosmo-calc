@@ -3,8 +3,38 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Cosmology Calculator</title>
+  <title>Cosmology Calculator | Redshift, Age, Distances, Planck 2018</title>
+  <meta name="description" content="Fast browser-based cosmology calculator for redshift, lookback time, cosmic age, comoving distance, luminosity distance, angular diameter distance, distance modulus, and kpc/arcsec. Planck 2018 and WMAP9 presets; validated against Astropy." />
+  <meta name="keywords" content="cosmology calculator, redshift calculator, lookback time calculator, cosmic age, comoving distance, luminosity distance, angular diameter distance, distance modulus, kpc per arcsec, Planck 2018, WMAP9" />
+  <meta name="author" content="Zihao Wu" />
+  <link rel="canonical" href="https://wuzihao.site/cosmo-calc/" />
+
+  <!-- Open Graph / social preview -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Cosmology Calculator — Redshift, Age, Distances (Planck 2018 / WMAP9)" />
+  <meta property="og:description" content="Browser-based cosmology calculator: redshift to age, lookback time, and distances. Planck 2018 / WMAP9 presets, Hogg (1999) conventions, validated against Astropy." />
+  <meta property="og:url" content="https://wuzihao.site/cosmo-calc/" />
+
   <link rel="stylesheet" href="style.css" />
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Cosmology Calculator",
+    "applicationCategory": "Scientific calculator",
+    "operatingSystem": "Web",
+    "url": "https://wuzihao.site/cosmo-calc/",
+    "author": {
+      "@type": "Person",
+      "name": "Zihao Wu",
+      "affiliation": "Harvard University"
+    },
+    "description": "Browser-based cosmology calculator for redshift, lookback time, cosmic age, comoving distance, luminosity distance, angular diameter distance, distance modulus, and angular scale. Includes Planck 2018 and WMAP9 presets and is validated against Astropy.",
+    "keywords": "cosmology calculator, redshift calculator, lookback time, angular diameter distance, luminosity distance, Planck 2018, WMAP9",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+  }
+  </script>
 </head>
 <body>
   <main>
@@ -56,7 +86,10 @@
 
     <footer>
       <p>
-        Conventions follow
+        A fast, browser-based cosmology calculator that converts redshift into
+        cosmic age, lookback time, comoving distance, luminosity distance,
+        angular-diameter distance, distance modulus, and angular scale, with
+        Planck 2018 and WMAP9 presets. Conventions follow
         <a href="https://arxiv.org/abs/astro-ph/9905116" target="_blank" rel="noopener">Hogg (1999)</a>;
         cf. the
         <a href="https://astro.ucla.edu/~wright/CosmoCalc.html" target="_blank" rel="noopener">Wright (2006)</a>

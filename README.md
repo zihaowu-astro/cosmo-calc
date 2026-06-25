@@ -1,9 +1,7 @@
 # Cosmology Calculator
 
 A browser-based cosmology calculator for flat $\Lambda$CDM, in the spirit of
-[Ned Wright's Cosmology Calculator](https://astro.ucla.edu/~wright/CosmoCalc.html). Line-of-sight integrals are evaluated with adaptive Simpson quadrature, and radiation is included as $\Omega_r = 4.165\times10^{-5}\,/\,h^2$. All quantities are validated against [Astropy](https://www.astropy.org/): they
-agree to better than $0.01\%$ for $z \le 20$, and to $\lesssim 0.07\%$ out to
-$z \approx 1089$. Conventions follow
+[Ned Wright's Cosmology Calculator](https://astro.ucla.edu/~wright/CosmoCalc.html). Line-of-sight integrals are evaluated with adaptive Simpson quadrature, and radiation is included as $\Omega_r = 4.165\times10^{-5}\,/\,h^2$. All quantities are validated against Astropy. Conventions follow
 [Hogg (1999)](https://arxiv.org/abs/astro-ph/9905116).
 
 ## Parameters
