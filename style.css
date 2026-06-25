@@ -14,7 +14,10 @@
 
 * { box-sizing: border-box; }
 
-html { -webkit-text-size-adjust: 100%; }
+html {
+  -webkit-text-size-adjust: 100%;
+  font-size: 110%;          /* scale the whole UI up ~10% */
+}
 
 body {
   margin: 0;
@@ -23,11 +26,11 @@ body {
   color: var(--text);
   line-height: 1.55;
   min-height: 100vh;
-  font-size: 16px;
+  font-size: 1rem;
 }
 
 main {
-  max-width: 780px;
+  max-width: 48.75rem;       /* was 780px; now scales with root font */
   margin: 0 auto;
   padding: 3rem 1.5rem 4.5rem;
 }
