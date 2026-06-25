@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Distance Modulus &mdash; a common confusion</title>
+  <link rel="stylesheet" href="style.css" />
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [["$", "$"]], displayMath: [["$$", "$$"]] },
+      svg: { fontCache: "global" },
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" async></script>
+</head>
+<body>
+  <main class="prose">
+    <header>
+      <h1>Distance modulus</h1>
+      <hr class="rule" />
+    </header>
+
+    <p>
+      We clarify a common source of confusion in distance-modulus calculations:
+      the distinction between bolometric flux and flux density.
+    </p>
+
+    <p>The usual distance modulus,</p>
+    $$m_{\rm bol}=M_{\rm bol}+5\log_{10}\left(\frac{D_L}{10\,{\rm pc}}\right),$$
+    <p>
+      is defined for bolometric quantities. Here $D_L$ is the luminosity
+      distance, which already includes the two cosmological dimming factors
+      associated with photon-energy redshift and time dilation.
+    </p>
+
+    <p>
+      Most observed magnitudes, however, are based on a flux density, usually
+      $f_\nu$, rather than on a bolometric flux. For a monochromatic AB-like
+      measurement matched to the corresponding rest-frame frequency, the relation
+      becomes
+    </p>
+    $$m_{\rm UV}=M_{\rm UV}+5\log_{10}\left(\frac{D_L}{10\,{\rm pc}}\right)-2.5\log_{10}(1+z).$$
+    <p>
+      <strong>This calculator includes this $-2.5\log_{10}(1+z)$ term.</strong>
+    </p>
+
+    <p>
+      The extra term is a bandwidth effect. A frequency interval observed with
+      width $d\nu_{\rm obs}$ corresponds to a wider interval in the emitted frame,
+    </p>
+    $$d\nu_{\rm em}=(1+z)\,d\nu_{\rm obs}.$$
+
+    <p>
+      The flux density $f_\nu$ ($\mathrm{erg\,s^{-1}\,Hz^{-1}}$) is defined per
+      unit observed frequency. The transformation between emitted and observed
+      frequency intervals therefore has a factor of $1+z$:
+    </p>
+    $$f_{\nu_{\rm obs}}=\frac{(1+z)\,L_{\nu_{\rm em}}\left[(1+z)\nu_{\rm obs}\right]}{4\pi D_L^2}.$$
+
+    <p>When written in magnitudes, this factor gives the term</p>
+    $$-2.5\log_{10}(1+z).$$
+
+    <p>In contrast, the bolometric flux ($\mathrm{erg\,s^{-1}}$) is</p>
+    $$F_{\rm bol}=\int f_\nu\,d\nu,$$
+    <p>where the bandwidth transformation is integrated over.</p>
+
+    <p>
+      This $-2.5\log_{10}(1+z)$ factor is important, for example, when converting
+      observed UV magnitudes of high-redshift galaxies into rest-frame absolute
+      ultraviolet magnitudes $M_{\rm UV}$.
+    </p>
+
+    <p class="back"><a href="index.html">&larr; Back to the calculator</a></p>
+  </main>
+</body>
+</html>

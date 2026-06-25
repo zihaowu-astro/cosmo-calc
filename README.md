@@ -1,64 +1,59 @@
 # Cosmology Calculator
 
-A small, dependency-free cosmology calculator in the spirit of
-[Ned Wright's Cosmology Calculator](https://astro.ucla.edu/~wright/CosmoCalc.html).
+A browser-based cosmology calculator for flat $\Lambda$CDM, in the spirit of
+[Ned Wright's Cosmology Calculator](https://astro.ucla.edu/~wright/CosmoCalc.html). Line-of-sight integrals are evaluated with adaptive Simpson quadrature, and radiation is included as $\Omega_r = 4.165\times10^{-5}\,/\,h^2$. All quantities are validated against [Astropy](https://www.astropy.org/): they
+agree to better than $0.01\%$ for $z \le 20$, and to $\lesssim 0.07\%$ out to
+$z \approx 1089$. Conventions follow
+[Hogg (1999)](https://arxiv.org/abs/astro-ph/9905116).
 
-You **cannot** edit the cosmological parameters — instead you pick one of two
-standard, fixed parameter sets:
+## Parameters
 
-| Set | H₀ | Ω_M | Ω_Λ | Source |
-|-----|----|-----|-----|--------|
-| **Planck 2018** | 67.36 | 0.3153 | 0.6847 | Planck 2018 VI, TT,TE,EE+lowE+lensing+BAO |
-| **WMAP9** | 69.32 | 0.2865 | 0.7135 | Hinshaw et al. 2013 (WMAP9 + eCMB + BAO + H₀) |
+| Set | $H_0$ | $\Omega_m$ | $\Omega_\Lambda$ |
+|-----|-----|-----|-----|
+| Planck 2018 | 67.66 | 0.3111 | 0.6889 |
+| WMAP9 | 69.32 | 0.2865 | 0.7135 |
 
-Both are flat ΛCDM. Radiation density (photons + 3 neutrino species) is added
-following Wright's convention, Ω_R = 4.165×10⁻⁵ / h².
+$H_0$ in $\mathrm{km\,s^{-1}\,Mpc^{-1}}$; both flat ($\Omega_k = 0$).
 
-Enter a redshift *z* and the calculator returns:
+- Planck 2018 (TT,TE,EE+lowE+lensing+BAO): Planck Collaboration VI (2020),
+  *A&A* **641**, A6 ([arXiv:1807.06209](https://arxiv.org/abs/1807.06209)), Table 2.
+- WMAP9 (WMAP+eCMB+BAO+H₀): Hinshaw et al. (2013), *ApJS* **208**, 19
+  ([arXiv:1212.5226](https://arxiv.org/abs/1212.5226)), Table 4.
 
-- Age of the universe now and at *z*
-- Light travel time (lookback time)
-- Comoving radial distance
-- Angular diameter distance and angular size scale (kpc/″)
-- Luminosity distance and distance modulus
-- Comoving volume enclosed within *z*
+## Distance modulus
 
-Everything runs client-side in plain JavaScript — distances are integrated with
-an adaptive Simpson's rule.
+We clarify a common source of confusion in distance-modulus calculations: the distinction between bolometric flux and flux density.
 
-## Run locally
+The usual distance modulus,
 
-It's a static site, so just open `index.html`, or serve the folder:
+$$m_{\rm bol}=M_{\rm bol}+5\log_{10}\left(\frac{D_L}{10\,{\rm pc}}\right),$$
 
-```bash
-python3 -m http.server 8000
-# then visit http://localhost:8000
-```
+is defined for bolometric quantities. Here $D_L$ is the luminosity distance, which already includes the two cosmological dimming factors associated with photon-energy redshift and time dilation.
 
-## Deploy on GitHub Pages
+Most observed magnitudes, however, are based on a flux density, usually $f_\nu$, rather than on a bolometric flux. For a monochromatic AB-like measurement matched to the corresponding rest-frame frequency, the relation becomes
 
-1. Create a new GitHub repository and push these files:
+$$m_{\rm UV}=M_{\rm UV}+5\log_{10}\left(\frac{D_L}{10\,{\rm pc}}\right)-2.5\log_{10}(1+z).$$
 
-   ```bash
-   git init
-   git add .
-   git commit -m "Cosmology calculator"
-   git branch -M main
-   git remote add origin https://github.com/<you>/<repo>.git
-   git push -u origin main
-   ```
 
-2. In the repo, go to **Settings → Pages** and set the source to
-   **GitHub Actions**. The included workflow (`.github/workflows/pages.yml`)
-   publishes the site automatically on every push to `main`.
 
-   *(Alternatively, set Pages source to "Deploy from a branch → main / root" —
-   no workflow needed since this is a static site.)*
+The extra term is a bandwidth effect. A frequency interval observed with width $d\nu_{\rm obs}$ corresponds to a wider interval in the emitted frame,
 
-Your calculator will be live at `https://<you>.github.io/<repo>/`.
+$$d\nu_{\rm em}=(1+z)\,d\nu_{\rm obs}.$$
 
-## Files
+The flux density $f_\nu$ ($\mathrm{erg\,s^{-1}\,{Hz}^{-1}}$) is defined per unit observed frequency. The transformation between emitted and observed frequency intervals therefore has a factor of $1+z$:
 
-- `index.html` — page structure
-- `style.css` — styling
-- `cosmo.js` — cosmology math + UI logic
+$$f_{\nu_{\rm obs}}=\frac{(1+z)\,L_{\nu_{\rm em}}\left[(1+z)\nu_{\rm obs}\right]}{4\pi D_L^2}.$$
+
+When written in magnitudes, this factor gives the term
+
+$$-2.5\log_{10}(1+z).$$
+
+In contrast, the bolometric flux ($\mathrm{erg\,s^{-1}}$)  is,
+
+$$F_{\rm bol}=\int f_\nu\,d\nu,$$
+
+where the bandwidth transformation is integrated over. 
+
+
+
+This $-2.5\log_{10}(1+z)$ factor is important, for example, when converting observed UV magnitudes of high-redshift galaxies into rest-frame absolute ultraviolet magnitudes $M_{\rm UV}$.

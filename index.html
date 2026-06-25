@@ -8,12 +8,10 @@
 </head>
 <body>
   <main>
-    <h1>Cosmology Calculator</h1>
-    <p class="subtitle">
-      A flat &Lambda;CDM calculator in the spirit of
-      <a href="https://astro.ucla.edu/~wright/CosmoCalc.html" target="_blank" rel="noopener">Ned Wright's Cosmology Calculator</a>.
-      The cosmology is fixed &mdash; choose between the <strong>Planck 2018</strong> and <strong>WMAP9</strong> parameter sets.
-    </p>
+    <header>
+      <h1>Cosmology Calculator</h1>
+      <hr class="rule" />
+    </header>
 
     <form id="calc-form" autocomplete="off">
       <div class="controls">
@@ -26,7 +24,7 @@
         </label>
 
         <label class="field">
-          <span>Redshift <em>z</em></span>
+          <span>Redshift</span>
           <input id="redshift" type="number" value="3" min="0" step="any" />
         </label>
 
@@ -36,17 +34,40 @@
 
     <section id="params" class="params"></section>
 
-    <section id="results" class="results" hidden>
-      <h2>Results</h2>
-      <table id="results-table">
-        <tbody></tbody>
-      </table>
-    </section>
+    <div id="results" hidden>
+      <section class="block">
+        <table id="primary-table">
+          <caption>Key quantities</caption>
+          <tbody></tbody>
+        </table>
+      </section>
+
+      <figure class="figure-wrap">
+        <div id="plots" class="plots"></div>
+      </figure>
+
+      <section class="block">
+        <table id="secondary-table">
+          <caption>Distances and times</caption>
+          <tbody></tbody>
+        </table>
+      </section>
+    </div>
 
     <footer>
       <p>
-        Open-source &mdash; runs entirely in your browser.
-        Distances integrated with adaptive Simpson's rule including radiation density.
+        Conventions follow
+        <a href="https://arxiv.org/abs/astro-ph/9905116" target="_blank" rel="noopener">Hogg (1999)</a>;
+        cf. the
+        <a href="https://astro.ucla.edu/~wright/CosmoCalc.html" target="_blank" rel="noopener">Wright (2006)</a>
+        calculator. Computed in-browser with JavaScript and validated against
+        <a href="https://www.astropy.org/" target="_blank" rel="noopener">Astropy</a>:
+        all quantities agree to better than 0.01% for <i>z</i> &le; 20 (and to
+        &lesssim;0.07% out to the last-scattering surface, <i>z</i> &asymp; 1089).
+      </p>
+      <p>
+        Developed by Zihao Wu (Harvard) with assistance from Claude Code.
+        Accuracy verified by Zihao Wu.
       </p>
     </footer>
   </main>
