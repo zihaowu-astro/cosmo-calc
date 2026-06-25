@@ -88,13 +88,28 @@ form {
 }
 
 select, input {
+  box-sizing: border-box;
+  height: 2.6rem;          /* equal height across Safari/Chrome */
+  margin: 0;
   background: var(--panel-2);
   border: 1px solid var(--border);
   color: var(--text);
   border-radius: 4px;
-  padding: 0.55rem 0.65rem;
+  padding: 0 0.65rem;
   font-size: 1rem;
+  line-height: normal;
   font-family: var(--serif);
+}
+
+/* Reset native chrome so the select height is predictable, add a custom arrow */
+select {
+  -webkit-appearance: none;
+  appearance: none;
+  padding-right: 1.9rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='none' stroke='%235c626d' stroke-width='1.6' d='M1 1.5 6 6.5 11 1.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.7rem center;
+  background-size: 0.7rem auto;
 }
 
 select:focus, input:focus {
@@ -104,11 +119,13 @@ select:focus, input:focus {
 }
 
 button {
+  box-sizing: border-box;
+  height: 2.6rem;
   background: var(--accent);
   color: #ffffff;
   border: 1px solid var(--accent);
   border-radius: 4px;
-  padding: 0.55rem 1.5rem;
+  padding: 0 1.5rem;
   font-size: 0.98rem;
   font-family: var(--serif);
   font-weight: 600;
