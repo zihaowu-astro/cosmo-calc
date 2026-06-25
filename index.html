@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cosmology Calculator</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main>
+    <h1>Cosmology Calculator</h1>
+    <p class="subtitle">
+      A flat &Lambda;CDM calculator in the spirit of
+      <a href="https://astro.ucla.edu/~wright/CosmoCalc.html" target="_blank" rel="noopener">Ned Wright's Cosmology Calculator</a>.
+      The cosmology is fixed &mdash; choose between the <strong>Planck 2018</strong> and <strong>WMAP9</strong> parameter sets.
+    </p>
+
+    <form id="calc-form" autocomplete="off">
+      <div class="controls">
+        <label class="field">
+          <span>Cosmology</span>
+          <select id="cosmology">
+            <option value="planck18" selected>Planck 2018</option>
+            <option value="wmap9">WMAP9</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span>Redshift <em>z</em></span>
+          <input id="redshift" type="number" value="3" min="0" step="any" />
+        </label>
+
+        <button type="submit">Calculate</button>
+      </div>
+    </form>
+
+    <section id="params" class="params"></section>
+
+    <section id="results" class="results" hidden>
+      <h2>Results</h2>
+      <table id="results-table">
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <footer>
+      <p>
+        Open-source &mdash; runs entirely in your browser.
+        Distances integrated with adaptive Simpson's rule including radiation density.
+      </p>
+    </footer>
+  </main>
+
+  <script src="cosmo.js"></script>
+</body>
+</html>
