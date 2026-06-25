@@ -283,11 +283,15 @@ function attachHover(svg, meta, unit, dec) {
   const zN = pts[pts.length - 1][0];
   const step = pts.length > 1 ? pts[1][0] - pts[0][0] : 0.05;
 
-  function move(evt) {
+  function zAt(evt) {
     const rect = svg.getBoundingClientRect();
     const vbx = ((evt.clientX - rect.left) / rect.width) * W;
-    let z = xmin + ((vbx - padL) / (W - padL - padR)) * (xmax - xmin);
-    z = Math.max(z0, Math.min(zN, z));
+    const z = xmin + ((vbx - padL) / (W - padL - padR)) * (xmax - xmin);
+    return Math.max(z0, Math.min(zN, z));
+  }
+
+  function move(evt) {
+    const z = zAt(evt);
     const idx = Math.max(0, Math.min(pts.length - 1, Math.round((z - z0) / step)));
     const zv = pts[idx][0];
     const val = pts[idx][1];
@@ -311,6 +315,10 @@ function attachHover(svg, meta, unit, dec) {
 
   svg.addEventListener("mousemove", move);
   svg.addEventListener("mouseleave", () => { hg.style.display = "none"; });
+  svg.addEventListener("click", (evt) => {
+    zInput.value = Number(zAt(evt).toFixed(2));
+    render();
+  });
 }
 
 function renderPlots(m, z, r) {
@@ -388,6 +396,7 @@ function render() {
     row("Angular-diameter distance, <i>D</i><sub>A</sub>", int(r.DA_Mpc), "Mpc"),
     row("Luminosity distance, <i>D</i><sub>L</sub>", int(r.DL_Mpc), "Mpc"),
     row("Comoving volume (&lt; <i>z</i>)", sig4(r.comovingVolumeGpc3), "Gpc<sup>3</sup>"),
+    row("Hubble parameter, <i>H</i>(<i>z</i>)", sig4(m.H0 * r.Ez), "km s<sup>&minus;1</sup> Mpc<sup>&minus;1</sup>"),
     row("Expansion rate, <i>E</i>(<i>z</i>) = <i>H</i>(<i>z</i>)/<i>H</i><sub>0</sub>", r.Ez.toFixed(2)),
     row("Radial scale (&Delta;<i>z</i> = 0.01)", int(r.pkpcPerDz01), "pkpc"),
   );
