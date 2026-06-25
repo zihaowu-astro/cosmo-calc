@@ -54,4 +54,4 @@ where the bandwidth transformation is integrated over.
 
 
 
-This $-2.5\log_{10}(1+z)$ factor is important, for example, when converting observed UV magnitudes of high-redshift galaxies into rest-frame absolute ultraviolet magnitudes $M_{\rm UV}$.
+This $-2.5\log_{10}(1+z)$ factor is necessary, for example, when converting observed magnitudes of high-redshift galaxies into absolute rest-frame UV magnitudes $M_{\rm UV}$.
