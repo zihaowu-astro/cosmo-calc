@@ -29,6 +29,4 @@ neutrinos are then treated as massless in $\Omega_r$.
   ([arXiv:1212.5226](https://arxiv.org/abs/1212.5226)), Table 4.
 - WMAP7 (WMAP+BAO+H₀ ML): Komatsu et al. (2011), *ApJS* **192**, 18
   ([arXiv:1001.4538](https://arxiv.org/abs/1001.4538)), Table 1.
-- $H_0 = 70$, $\Omega_m = 0.3$, $\Omega_\Lambda = 0.7$: the values conventionally
-  adopted in the literature; no specific reference.
-
+- $H_0 = 70$, $\Omega_m = 0.3$, $\Omega_\Lambda = 0.7$.
