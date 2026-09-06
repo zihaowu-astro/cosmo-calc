@@ -7,15 +7,25 @@ const C_KMS = 299792.458;          // speed of light [km/s]
 const MPC_PER_GLY = 306.601;       // 1 Gly = 306.601 Mpc
 const SEC_PER_GYR = 3.15576e16;    // seconds in a Gyr (Julian)
 const KM_PER_MPC = 3.0856775815e19;
+const AB_ZP_NJY = 3.631e12;        // AB zero point, 3631 Jy, expressed in nJy
 
 // ---------------------------------------------------------------------------
-// Fixed cosmologies (flat LambdaCDM)
+// Fixed cosmologies (flat LambdaCDM). OmegaM is the published value, which counts
+// the massive neutrino as matter; neutrinos are then modelled as massless below.
 //   Planck 2018: TT,TE,EE+lowE+lensing+BAO (Planck 2018 VI, Table 2)
-//   WMAP9:       Hinshaw et al. 2013, nine-year WMAP+eCMB+BAO+H0
+//   Planck 2015: TT,TE,EE+lowP+lensing+ext (Planck 2015 XIII, Table 4)
+//   Planck 2013: Planck+WP+highL+BAO       (Planck 2013 XVI, Table 5)
+//   WMAP9:       Hinshaw et al. 2013, nine-year WMAP+eCMB+BAO+H0 (Table 4)
+//   WMAP7:       Komatsu et al. 2011, seven-year WMAP+BAO+H0 ML  (Table 1)
+//   h70:         the values conventionally adopted in the literature, no reference
 // ---------------------------------------------------------------------------
 const COSMOLOGIES = {
-  planck18: { name: "Planck 2018", H0: 67.66, OmegaM: 0.3111, OmegaL: 0.6889 },
-  wmap9:    { name: "WMAP9",       H0: 69.32, OmegaM: 0.2865, OmegaL: 0.7135 },
+  planck18: { name: "Planck 2018",   H0: 67.66, OmegaM: 0.3111, OmegaL: 0.6889 },
+  planck15: { name: "Planck 2015",   H0: 67.74, OmegaM: 0.3089, OmegaL: 0.6911 },
+  planck13: { name: "Planck 2013",   H0: 67.77, OmegaM: 0.3086, OmegaL: 0.6914 },
+  wmap9:    { name: "WMAP9",         H0: 69.32, OmegaM: 0.2865, OmegaL: 0.7135 },
+  wmap7:    { name: "WMAP7",         H0: 70.40, OmegaM: 0.2720, OmegaL: 0.7280 },
+  h70:      { name: "H₀ = 70, Ωₘ = 0.3", H0: 70.00, OmegaM: 0.3000, OmegaL: 0.7000 },
 };
 
 // Build the full parameter set for a given cosmology, including radiation.
@@ -134,6 +144,9 @@ function compute(z, m) {
   // Angular size scale: physical kpc per arcsecond.
   const kpcPerArcsec = (DA * 1000 * Math.PI) / (180 * 3600);
 
+  // Same scale in comoving units: comoving Mpc per arcminute.
+  const cMpcPerArcmin = (DM * Math.PI) / (180 * 60);
+
   // Radial scale: proper (physical) line-of-sight distance per dz = 0.01.
   //   dl_proper/dz = D_H / (E(z) (1+z))   [Mpc] -> pkpc, times dz
   const pkpcPerDz01 = (m.DH / (Ez(z, m) * (1 + z))) * 1000 * 0.01;
@@ -151,6 +164,7 @@ function compute(z, m) {
     DL_Mpc: DL,
     DL_Gly: DL / MPC_PER_GLY,
     kpcPerArcsec,
+    cMpcPerArcmin,
     pkpcPerDz01,
     comovingVolumeGpc3: VC / 1e9, // Mpc^3 -> Gpc^3
     // Distance modulus for per-frequency flux density F_nu, including the
@@ -174,6 +188,13 @@ function fmt(x, digits = 4) {
   });
 }
 
+// Flux densities span decades; keep ~3 significant digits without exponents.
+function fmtFlux(x) {
+  if (!isFinite(x)) return "—";
+  const d = x >= 100 ? 0 : x >= 10 ? 1 : x >= 1 ? 2 : 3;
+  return x.toLocaleString(undefined, { minimumFractionDigits: d, maximumFractionDigits: d });
+}
+
 // ---------------------------------------------------------------------------
 // UI
 // ---------------------------------------------------------------------------
@@ -189,7 +210,12 @@ const plotsEl = document.getElementById("plots");
 // ---------------------------------------------------------------------------
 // SVG line-plot helpers (dependency-free)
 // ---------------------------------------------------------------------------
+// One panel geometry, shared by all four plots (viewBox units).
+const PLOT = { W: 380, H: 244, padL: 57, padR: 16, padT: 30, padB: 44 };
+const MUV_MIN = -24, MUV_MAX = -16, MUV_STEP = 0.1;   // M_UV grid of the flux panel
+
 function niceTicks(min, max, n) {
+  if (!isFinite(min) || !isFinite(max)) return [];
   const span = max - min || 1;
   const step0 = span / n;
   const mag = Math.pow(10, Math.floor(Math.log10(step0)));
@@ -205,146 +231,273 @@ function niceTicks(min, max, n) {
 function tickLabel(v) {
   if (v === 0) return "0";
   const a = Math.abs(v);
-  if (a >= 1e4 || a < 1e-2) return v.toExponential(0);
-  return Number(v.toPrecision(3)).toLocaleString();
+  const s = a >= 1e4 || a < 1e-2 ? v.toExponential(0) : Number(v.toPrecision(3)).toLocaleString();
+  return s.replace("-", "−");
 }
 
-function linePlot(subtitle, pts, curZ, curVal) {
-  const W = 260, H = 196, padL = 42, padR = 12, padT = 26, padB = 38;
-  const xmin = 0, xmax = 20;
-  const ys = pts.map((p) => p[1]).filter(isFinite);
-  let ymin = Math.min(...ys), ymax = Math.max(...ys);
-  if (ymin === ymax) { ymin -= 1; ymax += 1; }
-  const padY = (ymax - ymin) * 0.08;
-  ymin -= padY; ymax += padY;
-  const sx = (z) => padL + ((z - xmin) / (xmax - xmin)) * (W - padL - padR);
-  const sy = (v) => H - padB - ((v - ymin) / (ymax - ymin)) * (H - padT - padB);
+// Ticks for a log10 axis, given the axis range in log10 units.
+function logTicks(lmin, lmax) {
+  if (!isFinite(lmin) || !isFinite(lmax)) return [];
+  const mant = lmax - lmin >= 3 ? [1] : lmax - lmin >= 1.5 ? [1, 3] : [1, 2, 5];
+  const ticks = [];
+  for (let k = Math.floor(lmin); k <= Math.ceil(lmax); k++) {
+    for (const s of mant) ticks.push(k + Math.log10(s));
+  }
+  return ticks;
+}
+
+const SUPERSCRIPT = { "-": "⁻", 0: "⁰", 1: "¹", 2: "²", 3: "³", 4: "⁴", 5: "⁵", 6: "⁶", 7: "⁷", 8: "⁸", 9: "⁹" };
+
+function logTickLabel(l) {
+  const k = Math.round(l);
+  if (Math.abs(l - k) > 1e-9) return tickLabel(Math.pow(10, l));  // 2, 5, ... ticks
+  return "10" + String(k).split("").map((ch) => SUPERSCRIPT[ch]).join("");
+}
+
+// Typeset a number with a proper minus sign.
+function num(v, d) {
+  return (d === undefined ? String(v) : v.toFixed(d)).replace("-", "−");
+}
+// Turn an axis spec into a concrete axis. `min`/`max`/`ticks` are optional:
+// given explicitly they are used as-is, otherwise they follow the data.
+function makeAxis(spec, vals) {
+  const log = !!spec.log;
+  const to = (v) => (log ? Math.log10(v) : v);
+  const auto = spec.min === undefined || spec.max === undefined;
+  const seen = vals.map(to);
+  let min = spec.min !== undefined ? to(spec.min) : Math.min(...seen);
+  let max = spec.max !== undefined ? to(spec.max) : Math.max(...seen);
+  if (!isFinite(min) || !isFinite(max)) { min = 0; max = log ? 3 : 1; }  // degenerate input (z = 0)
+  else if (min === max) { min -= 1; max += 1; }
+  else if (auto) { const pad = (max - min) * 0.08; min -= pad; max += pad; }
+  const ticks = (spec.ticks ? spec.ticks.map(to) : log ? logTicks(min, max) : niceTicks(min, max, 4))
+    .filter((t) => t >= min && t <= max);
+  return { log, to, min, max, ticks, label: spec.label, fmt: log ? logTickLabel : tickLabel };
+}
+
+// Is a value plottable on an axis of this kind?
+function onAxis(v, log) {
+  return isFinite(v) && (!log || v > 0);
+}
+
+// A single panel: title on top, both axes labelled, optionally a second y axis
+// on the right that is the left one shifted by a constant. `opts.index` names
+// the axis whose values form the uniform grid the hover snaps to.
+function linePlot(title, pts, opts) {
+  const { W, H, padL, padT, padB } = PLOT;
+  const padR = opts.padR ?? PLOT.padR;
+  const X = makeAxis(opts.x, pts.map((p) => p[0]).filter((v) => onAxis(v, opts.x.log)));
+  const Y = makeAxis(opts.y, pts.map((p) => p[1]).filter((v) => onAxis(v, opts.y.log)));
+  const sxT = (t) => padL + ((t - X.min) / (X.max - X.min)) * (W - padL - padR);
+  const syT = (t) => H - padB - ((t - Y.min) / (Y.max - Y.min)) * (H - padT - padB);
+  const sx = (v) => sxT(X.to(v));
+  const sy = (v) => syT(Y.to(v));
 
   let d = "", started = false;
-  for (const [z, v] of pts) {
-    if (!isFinite(v)) { started = false; continue; }
-    d += (started ? "L" : "M") + sx(z).toFixed(1) + " " + sy(v).toFixed(1) + " ";
+  for (const [x, y] of pts) {
+    if (!onAxis(x, X.log) || !onAxis(y, Y.log)) { started = false; continue; }
+    d += (started ? "L" : "M") + sx(x).toFixed(1) + " " + sy(y).toFixed(1) + " ";
     started = true;
   }
 
   let g = "";
-  for (const t of niceTicks(ymin, ymax, 4)) {
-    if (t < ymin || t > ymax) continue;
-    const y = sy(t).toFixed(1);
+  for (const t of Y.ticks) {
+    const y = syT(t).toFixed(1);
     g += `<line class="grid" x1="${padL}" y1="${y}" x2="${W - padR}" y2="${y}"/>`;
-    g += `<text class="tick" x="${padL - 4}" y="${(+y + 3).toFixed(1)}" text-anchor="end">${tickLabel(t)}</text>`;
+    g += `<text class="tick" x="${padL - 5}" y="${(+y + 3.5).toFixed(1)}" text-anchor="end">${Y.fmt(t)}</text>`;
   }
-  for (const t of [0, 5, 10, 15, 20]) {
-    const x = sx(t).toFixed(1);
-    g += `<text class="tick" x="${x}" y="${H - padB + 12}" text-anchor="middle">${t}</text>`;
+  for (const t of X.ticks) {
+    g += `<text class="tick" x="${sxT(t).toFixed(1)}" y="${H - padB + 16}" text-anchor="middle">${X.fmt(t)}</text>`;
   }
 
-  let marker = "";
-  if (curZ >= xmin && curZ <= xmax) {
-    const x = sx(curZ).toFixed(1);
-    const labelLeft = curZ > (xmin + xmax) * 0.7;
-    marker += `<line x1="${x}" y1="${padT}" x2="${x}" y2="${H - padB}" stroke="var(--marker)" stroke-width="1.1" stroke-dasharray="4 3"/>`;
-    marker += `<text class="ztag" x="${labelLeft ? +x - 3 : +x + 3}" y="${padT + 9}" text-anchor="${labelLeft ? "end" : "start"}">z = ${(+curZ).toPrecision(3) / 1}</text>`;
-    if (isFinite(curVal) && curVal >= ymin && curVal <= ymax) {
-      marker += `<circle cx="${x}" cy="${sy(curVal).toFixed(1)}" r="3.2" fill="var(--marker)"/>`;
+  let mk = "";
+  if (opts.marker && opts.marker.x >= X.min && opts.marker.x <= X.max) {
+    const x = sx(opts.marker.x).toFixed(1);
+    const flip = opts.marker.x > X.min + 0.7 * (X.max - X.min);
+    mk += `<line x1="${x}" y1="${padT}" x2="${x}" y2="${H - padB}" stroke="var(--marker)" stroke-width="1.1" stroke-dasharray="4 3"/>`;
+    mk += `<text class="ztag" x="${flip ? +x - 4 : +x + 4}" y="${padT + 10}" text-anchor="${flip ? "end" : "start"}">${opts.marker.label}</text>`;
+    const v = opts.marker.value;
+    if (onAxis(v, Y.log) && Y.to(v) >= Y.min && Y.to(v) <= Y.max) {
+      mk += `<circle cx="${x}" cy="${sy(v).toFixed(1)}" r="3.2" fill="var(--marker)"/>`;
     }
+  }
+  if (opts.tag) {
+    mk += `<text class="ztag" x="${W - padR - 4}" y="${padT + 10}" text-anchor="end">${opts.tag}</text>`;
   }
 
   const xMid = (padL + W - padR) / 2;
+  const yMid = (padT + H - padB) / 2;
+
+  // Second y axis: the same quantity shifted by a constant (M_UV -> m_UV).
+  let right = "";
+  if (opts.yRight && isFinite(opts.yRight.offset)) {
+    const { offset, label } = opts.yRight;
+    right += `<line class="axis" x1="${W - padR}" y1="${padT}" x2="${W - padR}" y2="${H - padB}"/>`;
+    for (const t of niceTicks(Y.min + offset, Y.max + offset, 4)) {
+      if (t - offset < Y.min || t - offset > Y.max) continue;
+      const y = syT(t - offset).toFixed(1);
+      right += `<line class="axis" x1="${W - padR}" y1="${y}" x2="${W - padR + 4}" y2="${y}"/>`;
+      right += `<text class="tick" x="${W - padR + 7}" y="${(+y + 3.5).toFixed(1)}" text-anchor="start">${tickLabel(t)}</text>`;
+    }
+    right += `<text class="axtitle" transform="rotate(90 ${W - 9} ${yMid})" x="${W - 9}" y="${yMid}" text-anchor="middle">${label}</text>`;
+  }
+
   const html = `<figure class="panel"><svg viewBox="0 0 ${W} ${H}">
-    <text class="psubtitle" x="${xMid}" y="14" text-anchor="middle">${subtitle}</text>
+    <text class="psubtitle" x="${xMid}" y="17" text-anchor="middle">${title}</text>
     ${g}
     <line class="axis" x1="${padL}" y1="${padT}" x2="${padL}" y2="${H - padB}"/>
     <line class="axis" x1="${padL}" y1="${H - padB}" x2="${W - padR}" y2="${H - padB}"/>
     <path d="${d}" fill="none" stroke="var(--accent)" stroke-width="1.6"/>
-    ${marker}
+    ${mk}
+    ${right}
     <g class="hover" style="display:none">
-      <line class="hline" y1="${padT}" y2="${H - padB}"/>
+      <line class="hline"/>
       <circle class="hdot" r="3"/>
-      <text class="htext htext1" y="${padT + 12}"></text>
-      <text class="htext htext2" y="${padT + 24}"></text>
+      <text class="htext"></text>
+      <text class="htext"></text>
+      <text class="htext"></text>
     </g>
     <rect class="capture" x="${padL}" y="${padT}" width="${W - padL - padR}" height="${H - padT - padB}" fill="transparent"/>
-    <text class="axtitle" x="${xMid}" y="${H - 5}" text-anchor="middle" font-style="italic">z</text>
+    <text class="axtitle" x="${xMid}" y="${H - 6}" text-anchor="middle">${X.label}</text>
+    <text class="axtitle" transform="rotate(-90 15 ${yMid})" x="15" y="${yMid}" text-anchor="middle">${Y.label}</text>
   </svg></figure>`;
-  return { html, meta: { W, H, padL, padR, padT, padB, xmin, xmax, ymin, ymax, pts } };
+  return { html, meta: { X, Y, padR, pts, index: opts.index === "y" ? 1 : 0 } };
 }
 
-function attachHover(svg, meta, unit, dec) {
-  const { W, H, padL, padR, padT, padB, xmin, xmax, ymin, ymax, pts } = meta;
-  const sx = (z) => padL + ((z - xmin) / (xmax - xmin)) * (W - padL - padR);
-  const sy = (v) => H - padB - ((v - ymin) / (ymax - ymin)) * (H - padT - padB);
+function attachHover(svg, meta, opts) {
+  const { W, H, padL, padT, padB } = PLOT;
+  const { X, Y, padR, pts, index } = meta;
+  const sx = (v) => padL + ((X.to(v) - X.min) / (X.max - X.min)) * (W - padL - padR);
+  const sy = (v) => H - padB - ((Y.to(v) - Y.min) / (Y.max - Y.min)) * (H - padT - padB);
   const hg = svg.querySelector(".hover");
   const hline = svg.querySelector(".hline");
   const hdot = svg.querySelector(".hdot");
-  const ht1 = svg.querySelector(".htext1");
-  const ht2 = svg.querySelector(".htext2");
-  const z0 = pts[0][0];
-  const zN = pts[pts.length - 1][0];
-  const step = pts.length > 1 ? pts[1][0] - pts[0][0] : 0.05;
+  const texts = [...svg.querySelectorAll(".htext")];
+  const v0 = pts[0][index];
+  const vN = pts[pts.length - 1][index];
+  const step = pts.length > 1 ? pts[1][index] - pts[0][index] : 0.05;
+  const lo = Math.min(v0, vN), hi = Math.max(v0, vN);
 
-  function zAt(evt) {
+  // Position of the pointer along the indexed axis, in data units.
+  function valueAt(evt) {
     const rect = svg.getBoundingClientRect();
-    const vbx = ((evt.clientX - rect.left) / rect.width) * W;
-    const z = xmin + ((vbx - padL) / (W - padL - padR)) * (xmax - xmin);
-    return Math.max(z0, Math.min(zN, z));
+    const A = index === 0 ? X : Y;
+    const u = index === 0
+      ? A.min + ((((evt.clientX - rect.left) / rect.width) * W - padL) / (W - padL - padR)) * (A.max - A.min)
+      : A.min + ((H - padB - ((evt.clientY - rect.top) / rect.height) * H) / (H - padT - padB)) * (A.max - A.min);
+    const v = A.log ? Math.pow(10, u) : u;
+    return Math.max(lo, Math.min(hi, v));
   }
 
   function move(evt) {
-    const z = zAt(evt);
-    const idx = Math.max(0, Math.min(pts.length - 1, Math.round((z - z0) / step)));
-    const zv = pts[idx][0];
-    const val = pts[idx][1];
-    if (!isFinite(val)) { hg.style.display = "none"; return; }
-    const x = sx(zv);
-    hline.setAttribute("x1", x);
-    hline.setAttribute("x2", x);
+    const i = Math.max(0, Math.min(pts.length - 1, Math.round((valueAt(evt) - v0) / step)));
+    const [xv, yv] = pts[i];
+    if (!onAxis(xv, X.log) || !onAxis(yv, Y.log)) { hg.style.display = "none"; return; }
+    const x = sx(xv), y = sy(yv);
     hdot.setAttribute("cx", x);
-    hdot.setAttribute("cy", sy(val));
-    const left = zv > (xmin + xmax) * 0.5;
-    const tx = left ? x - 5 : x + 5;
-    const anchor = left ? "end" : "start";
-    ht1.setAttribute("x", tx);
-    ht1.setAttribute("text-anchor", anchor);
-    ht1.textContent = `z = ${zv.toFixed(1)}`;
-    ht2.setAttribute("x", tx);
-    ht2.setAttribute("text-anchor", anchor);
-    ht2.textContent = `${val.toLocaleString(undefined, { minimumFractionDigits: dec, maximumFractionDigits: dec })} ${unit}`;
+    hdot.setAttribute("cy", y);
+    if (index === 0) {                       // vertical guide, labels pinned to the top
+      hline.setAttribute("x1", x); hline.setAttribute("x2", x);
+      hline.setAttribute("y1", padT); hline.setAttribute("y2", H - padB);
+    } else {                                 // horizontal guide, labels ride with it
+      hline.setAttribute("x1", padL); hline.setAttribute("x2", W - padR);
+      hline.setAttribute("y1", y); hline.setAttribute("y2", y);
+    }
+    const lines = opts.texts(xv, yv);
+    const flip = x > (padL + W - padR) / 2;
+    const top = index === 0 ? padT + 13 : Math.min(y + 15, H - padB - 4 - 13 * (lines.length - 1));
+    texts.forEach((el, k) => {
+      const html = lines[k] || "";
+      el.innerHTML = html;
+      el.setAttribute("x", flip ? x - 5 : x + 5);
+      el.setAttribute("y", top + 13 * k);
+      el.setAttribute("text-anchor", flip ? "end" : "start");
+    });
     hg.style.display = "";
   }
 
   svg.addEventListener("mousemove", move);
   svg.addEventListener("mouseleave", () => { hg.style.display = "none"; });
-  svg.addEventListener("click", (evt) => {
-    zInput.value = Number(zAt(evt).toFixed(2));
-    render();
-  });
+  if (opts.onClick) svg.addEventListener("click", (evt) => opts.onClick(valueAt(evt)));
 }
 
 function renderPlots(m, z, r) {
-  const curve = [];
+  const it = (s) => `<tspan font-style="italic">${s}</tspan>`;
+  // subscript, followed by text that returns to the baseline
+  const sb = (s, after) => `<tspan dy="0.28em" font-size="0.72em">${s}</tspan><tspan dy="-0.28em">${after}</tspan>`;
+  const sbEnd = (s) => `<tspan dy="0.28em" font-size="0.72em">${s}</tspan>`;
+
+  const zCurve = [];
   for (let zz = 0.05; zz <= 20.0001; zz += 0.05) {
     const c = compute(zz, m);
-    curve.push({ z: zz, scale: c.kpcPerArcsec, dm: c.distmod, age: c.ageAtZ });
+    zCurve.push({ z: zz, scale: c.kpcPerArcsec, dm: c.distmod, age: c.ageAtZ });
   }
-  const it = (s) => `<tspan font-style="italic">${s}</tspan>`;
+  // Apparent AB magnitude at the current redshift: m_UV = M_UV + (m_UV - M_UV).
+  const fluxCurve = [];
+  for (let i = 0; i <= Math.round((MUV_MAX - MUV_MIN) / MUV_STEP); i++) {
+    const M = MUV_MIN + i * MUV_STEP;
+    fluxCurve.push([AB_ZP_NJY * Math.pow(10, -0.4 * (M + r.distmod)), M]);
+  }
+
+  const zAxis = { min: 0, max: 20, ticks: [0, 5, 10, 15, 20], label: it("z") };
+  const zOpts = {
+    x: zAxis, index: "x",
+    onClick: (x) => { zInput.value = Number(x.toFixed(2)); render(); },
+  };
+  const zMark = (value) => ({ x: z, value, label: `${it("z")} = ${Number(z.toPrecision(3))}` });
+  const zText = (x) => `${it("z")} = ${x.toFixed(1)}`;
+  const zTag = `${it("z")} = ${Number(z.toPrecision(3))}`;
+
+  // Row 1: the two z panels; row 2: magnitude and the flux it implies.
   const panels = [
-    { sub: `Angular scale (kpc/″)`, key: "scale", unit: "kpc/″", cur: r.kpcPerArcsec, dec: 1 },
-    { sub: `Distance modulus, ${it("μ")} (mag)`, key: "dm", unit: "mag", cur: r.distmod, dec: 1 },
-    { sub: `Age, ${it("t")}(${it("z")}) (Gyr)`, key: "age", unit: "Gyr", cur: r.ageAtZ, dec: 2 },
+    {
+      title: "Angular scale",
+      pts: zCurve.map((c) => [c.z, c.scale]),
+      opts: { ...zOpts, y: { label: "Angular scale (kpc/″)" }, marker: zMark(r.kpcPerArcsec) },
+      texts: (x, y) => [zText(x), `${y.toFixed(1)} kpc/″`],
+    },
+    {
+      title: "Age",
+      pts: zCurve.map((c) => [c.z, c.age]),
+      opts: { ...zOpts, y: { label: "Age (Gyr)" }, marker: zMark(r.ageAtZ) },
+      texts: (x, y) => [zText(x), `${y.toFixed(2)} Gyr`],
+    },
+    {
+      title: `${it("m")}${sb("UV", " − ")}${it("M")}${sbEnd("UV")}`,
+      pts: zCurve.map((c) => [c.z, c.dm]),
+      opts: { ...zOpts, y: { label: `${it("m")}${sb("UV", " − ")}${it("M")}${sb("UV", " (mag)")}` }, marker: zMark(r.distmod) },
+      texts: (x, y) => [zText(x), `${y.toFixed(2)} mag`],
+    },
+    {
+      title: `Flux density, ${it("f")}${sbEnd("ν")}`,
+      pts: fluxCurve,
+      opts: {
+        x: { log: true, label: `${it("f")}${sb("ν", " (nJy)")}` },
+        y: { min: MUV_MIN, max: MUV_MAX, ticks: [-24, -22, -20, -18, -16],
+             label: `${it("M")}${sb("UV", " (mag)")}` },
+        yRight: { offset: r.distmod, label: `${it("m")}${sb("UV", " (mag)")}` },
+        padR: 46, index: "y", tag: zTag,
+      },
+      texts: (x, y) => [
+        `${it("M")}${sb("UV", " = " + num(y, 1))}`,
+        `${it("m")}${sb("UV", " = " + num(y + r.distmod, 2))}`,
+        `${fmtFlux(x)} nJy`,
+      ],
+    },
   ];
 
   const metas = [];
   plotsEl.innerHTML = panels.map((p) => {
-    const { html, meta } = linePlot(p.sub, curve.map((c) => [c.z, c[p.key]]), z, p.cur);
+    const { html, meta } = linePlot(p.title, p.pts, p.opts);
     metas.push(meta);
     return html;
   }).join("");
 
   plotsEl.querySelectorAll(".panel svg").forEach((svg, i) => {
-    attachHover(svg, metas[i], panels[i].unit, panels[i].dec);
+    attachHover(svg, metas[i], { texts: panels[i].texts, onClick: panels[i].opts.onClick });
   });
 }
+
 
 function row(label, value, unit) {
   const tr = document.createElement("tr");
@@ -383,8 +536,10 @@ function render() {
   const int = (x) => Math.round(x).toLocaleString();
   primaryBody.innerHTML = "";
   primaryBody.append(
-    row("Angular size scale", sig3(r.kpcPerArcsec), "kpc/&Prime;"),
-    row(`Distance modulus, <i>&mu;</i> <a class="info" href="distance-modulus.html" target="_blank" rel="noopener" title="Includes the &minus;2.5 log(1+z) band-shift term. Why? Click to read.">&#9432;</a>`, sig4(r.distmod), "mag"),
+    row("Angular size scale",
+      `${sig3(r.kpcPerArcsec)} <span class="unit">pkpc/arcsec</span>` +
+      `<span class="alt">${sig3(r.cMpcPerArcmin)} <span class="unit">cMpc/arcmin</span></span>`),
+    row(`<i>m</i><sub>UV</sub> &minus; <i>M</i><sub>UV</sub> <a class="info" href="distance-modulus.html" target="_blank" rel="noopener" title="Includes the &minus;2.5 log(1+z) band-shift term. Why? Click to read.">&#9432;</a>`, sig4(r.distmod), "mag"),
     row("Age at redshift <i>z</i>", sig4(r.ageAtZ), "Gyr"),
   );
 

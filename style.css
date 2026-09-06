@@ -157,6 +157,14 @@ button:hover { background: #1a4368; }
 
 .params .sep { color: var(--border); margin: 0 0.45em; }
 
+.block .note {
+  margin: 0.4rem 0 0;
+  text-align: right;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-style: italic;
+}
+
 /* ---- Result tables --------------------------------------------------- */
 #results { margin-top: 1.6rem; }
 
@@ -213,6 +221,8 @@ td.value {
   font-weight: 600;
 }
 
+td.value .alt { margin-left: 1.4rem; }
+
 td.value .unit {
   color: var(--muted);
   font-weight: 400;
@@ -236,16 +246,16 @@ td.value .unit {
 .figure-wrap figcaption .fnum { font-weight: 600; color: var(--text); }
 
 .plots {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1rem;
-  justify-content: center;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.1rem 1.25rem;
 }
 
-.panel {
-  flex: 1 1 220px;
-  margin: 0;
+@media (max-width: 34rem) {
+  .plots { grid-template-columns: minmax(0, 1fr); }
 }
+
+.panel { margin: 0; }
 
 .panel svg { width: 100%; height: auto; display: block; }
 
@@ -253,9 +263,9 @@ td.value .unit {
 .panel text { font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; }
 .panel .axis { stroke: var(--rule); stroke-width: 1; }
 .panel .grid { stroke: var(--border); stroke-width: 0.75; }
-.panel .tick { fill: var(--muted); font-size: 11px; }
-.panel .axtitle { fill: var(--text); font-size: 12px; }
-.panel .psubtitle { fill: var(--text); font-size: 12.5px; font-weight: 700; }
+.panel .tick { fill: var(--muted); font-size: 13px; }
+.panel .axtitle { fill: var(--text); font-size: 14px; }
+.panel .psubtitle { fill: var(--text); font-size: 16px; font-weight: 700; }
 .panel .ztag { fill: var(--marker); font-size: 10.5px; font-style: italic; }
 
 /* hover read-out */
