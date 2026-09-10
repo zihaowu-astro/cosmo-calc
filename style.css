@@ -265,7 +265,34 @@ td.value .unit {
 .panel .grid { stroke: var(--border); stroke-width: 0.75; }
 .panel .tick { fill: var(--muted); font-size: 13px; }
 .panel .axtitle { fill: var(--text); font-size: 14px; }
-.panel .psubtitle { fill: var(--text); font-size: 16px; font-weight: 700; }
+/* Panel title, in HTML above the SVG so formulas can be set in MathML. It is
+   bottom-aligned in a fixed band, so that a one-line title and a stacked
+   fraction still leave every plot in a row starting at the same height, and its
+   content sits in a span because a flex container would trim the spaces around
+   "-" and ",". */
+.panel .ptitle {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  min-height: 3.1em;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text);
+  text-align: center;
+  line-height: 1.25;
+  margin: 0 0 0.15rem;
+}
+
+.panel .ptitle i { font-style: italic; }
+
+/* Formulas keep the browser's own math font, which sets them the way TeX would;
+   the plain-text titles above stay in the figure's sans-serif face. */
+.panel .ptitle math {
+  font-weight: 400;
+  font-size: 1.16em;
+  margin: 0 auto;
+}
 .panel .ztag { fill: var(--marker); font-size: 10.5px; font-style: italic; }
 
 /* hover read-out */

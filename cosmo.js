@@ -8,6 +8,7 @@ const MPC_PER_GLY = 306.601;       // 1 Gly = 306.601 Mpc
 const SEC_PER_GYR = 3.15576e16;    // seconds in a Gyr (Julian)
 const KM_PER_MPC = 3.0856775815e19;
 const AB_ZP_NJY = 3.631e12;        // AB zero point, 3631 Jy, expressed in nJy
+const G_KPC = 4.30091e-6;          // G [kpc (km/s)^2 / Msun]
 
 // ---------------------------------------------------------------------------
 // Fixed cosmologies (flat LambdaCDM). OmegaM is the published value, which counts
@@ -175,6 +176,21 @@ function compute(z, m) {
 }
 
 // ---------------------------------------------------------------------------
+// Halo scaling relations at redshift z
+// ---------------------------------------------------------------------------
+// M200 is the mass inside R200, the radius where the mean enclosed density is
+// 200 rho_crit(z), with rho_crit = 3 H(z)^2 / (8 pi G):
+//   M200 = (4 pi / 3) 200 rho_crit R200^3 = 100 H(z)^2 R200^3 / G
+// The circular velocity there is V200 = sqrt(G M200 / R200) = 10 H(z) R200,
+// so equivalently M200 = V200^3 / (10 G H(z)).
+//   M200 [Msun], Hz [km/s/Mpc]  ->  R200 [kpc], V200 [km/s]
+function halo(M200, Hz) {
+  const H = Hz / 1000;                                    // km/s/kpc
+  const R200 = Math.cbrt((G_KPC * M200) / (100 * H * H));
+  return { R200, V200: 10 * H * R200 };
+}
+
+// ---------------------------------------------------------------------------
 // Formatting helpers
 // ---------------------------------------------------------------------------
 function fmt(x, digits = 4) {
@@ -206,12 +222,15 @@ const resultsEl = document.getElementById("results");
 const primaryBody = document.querySelector("#primary-table tbody");
 const secondaryBody = document.querySelector("#secondary-table tbody");
 const plotsEl = document.getElementById("plots");
+const haloPlotsEl = document.getElementById("halo-plots");
 
 // ---------------------------------------------------------------------------
 // SVG line-plot helpers (dependency-free)
 // ---------------------------------------------------------------------------
-// One panel geometry, shared by all four plots (viewBox units).
-const PLOT = { W: 380, H: 244, padL: 57, padR: 16, padT: 30, padB: 44 };
+// One panel geometry, shared by every plot (viewBox units).
+// The panel title lives in HTML above the SVG, so that formulas can be set in
+// MathML; padT only has to clear the topmost gridline label and the z tag.
+const PLOT = { W: 380, H: 226, padL: 57, padR: 16, padT: 14, padB: 44 };
 const MUV_MIN = -24, MUV_MAX = -16, MUV_STEP = 0.1;   // M_UV grid of the flux panel
 
 function niceTicks(min, max, n) {
@@ -248,10 +267,44 @@ function logTicks(lmin, lmax) {
 
 const SUPERSCRIPT = { "-": "⁻", 0: "⁰", 1: "¹", 2: "²", 3: "³", 4: "⁴", 5: "⁵", 6: "⁶", 7: "⁷", 8: "⁸", 9: "⁹" };
 
+function supNum(k) {
+  return String(k).split("").map((ch) => SUPERSCRIPT[ch]).join("");
+}
+
 function logTickLabel(l) {
   const k = Math.round(l);
   if (Math.abs(l - k) > 1e-9) return tickLabel(Math.pow(10, l));  // 2, 5, ... ticks
-  return "10" + String(k).split("").map((ch) => SUPERSCRIPT[ch]).join("");
+  return "10" + supNum(k);
+}
+
+// ---------------------------------------------------------------------------
+// Native MathML for the formulas in the panel titles. No dependency, and
+// msubsup stacks the subscript under the exponent the way TeX's R_{200}^{3}
+// does, which a single SVG <text> run cannot do.
+// ---------------------------------------------------------------------------
+const THIN = `<mspace width="0.19em"/>`;
+const eq = (body) => `<math display="block">${body}</math>`;
+const mi = (s) => `<mi>${s}</mi>`;
+const msub = (base, sub) => `<msub>${mi(base)}<mn>${sub}</mn></msub>`;
+const msup = (base, sup) => `<msup>${base}<mn>${sup}</mn></msup>`;
+const msubsup = (base, sub, sup) => `<msubsup>${mi(base)}<mn>${sub}</mn><mn>${sup}</mn></msubsup>`;
+const frac = (numer, denom) => `<mfrac><mrow>${numer}</mrow><mrow>${denom}</mrow></mfrac>`;
+const paren = (head, inner) =>
+  `<mrow>${head}<mo stretchy="false">(</mo>${mi(inner)}<mo stretchy="false">)</mo></mrow>`;
+
+// A log axis carrying 2/3/5 mantissa ticks labels every tick as a plain number,
+// so that it reads "3, 10, 30, 100" rather than mixing "3" with "10²".
+function plainLogLabel(l) {
+  const v = Math.pow(10, l);
+  if (v >= 1e5 || v < 1e-3) return logTickLabel(l);
+  return String(Number(v.toPrecision(3)));
+}
+
+// Typeset a positive number in scientific notation, e.g. 3.2×10¹¹.
+function sci(v, d = 2) {
+  const e = Math.floor(Math.log10(v));
+  const a = Number((v / Math.pow(10, e)).toFixed(d));
+  return `${a}×10${supNum(e)}`;
 }
 
 // Typeset a number with a proper minus sign.
@@ -272,7 +325,9 @@ function makeAxis(spec, vals) {
   else if (auto) { const pad = (max - min) * 0.08; min -= pad; max += pad; }
   const ticks = (spec.ticks ? spec.ticks.map(to) : log ? logTicks(min, max) : niceTicks(min, max, 4))
     .filter((t) => t >= min && t <= max);
-  return { log, to, min, max, ticks, label: spec.label, fmt: log ? logTickLabel : tickLabel };
+  const subDecade = log && ticks.some((t) => Math.abs(t - Math.round(t)) > 1e-9);
+  const fmt = !log ? tickLabel : subDecade ? plainLogLabel : logTickLabel;
+  return { log, to, min, max, ticks, label: spec.label, fmt };
 }
 
 // Is a value plottable on an axis of this kind?
@@ -342,8 +397,7 @@ function linePlot(title, pts, opts) {
     right += `<text class="axtitle" transform="rotate(90 ${W - 9} ${yMid})" x="${W - 9}" y="${yMid}" text-anchor="middle">${label}</text>`;
   }
 
-  const html = `<figure class="panel"><svg viewBox="0 0 ${W} ${H}">
-    <text class="psubtitle" x="${xMid}" y="17" text-anchor="middle">${title}</text>
+  const html = `<figure class="panel"><div class="ptitle"><span>${title}</span></div><svg viewBox="0 0 ${W} ${H}">
     ${g}
     <line class="axis" x1="${padL}" y1="${padT}" x2="${padL}" y2="${H - padB}"/>
     <line class="axis" x1="${padL}" y1="${H - padB}" x2="${W - padR}" y2="${H - padB}"/>
@@ -373,20 +427,21 @@ function attachHover(svg, meta, opts) {
   const hline = svg.querySelector(".hline");
   const hdot = svg.querySelector(".hdot");
   const texts = [...svg.querySelectorAll(".htext")];
-  const v0 = pts[0][index];
-  const vN = pts[pts.length - 1][index];
-  const step = pts.length > 1 ? pts[1][index] - pts[0][index] : 0.05;
+  // The points are a uniform grid along the indexed axis in that axis's own
+  // units (log10 of the value for a log axis), so snapping is one division.
+  const A = index === 0 ? X : Y;
+  const v0 = A.to(pts[0][index]);
+  const vN = A.to(pts[pts.length - 1][index]);
+  const step = pts.length > 1 ? A.to(pts[1][index]) - v0 : 0.05;
   const lo = Math.min(v0, vN), hi = Math.max(v0, vN);
 
-  // Position of the pointer along the indexed axis, in data units.
+  // Position of the pointer along the indexed axis, in axis units.
   function valueAt(evt) {
     const rect = svg.getBoundingClientRect();
-    const A = index === 0 ? X : Y;
     const u = index === 0
       ? A.min + ((((evt.clientX - rect.left) / rect.width) * W - padL) / (W - padL - padR)) * (A.max - A.min)
       : A.min + ((H - padB - ((evt.clientY - rect.top) / rect.height) * H) / (H - padT - padB)) * (A.max - A.min);
-    const v = A.log ? Math.pow(10, u) : u;
-    return Math.max(lo, Math.min(hi, v));
+    return Math.max(lo, Math.min(hi, u));
   }
 
   function move(evt) {
@@ -418,14 +473,18 @@ function attachHover(svg, meta, opts) {
 
   svg.addEventListener("mousemove", move);
   svg.addEventListener("mouseleave", () => { hg.style.display = "none"; });
-  if (opts.onClick) svg.addEventListener("click", (evt) => opts.onClick(valueAt(evt)));
+  if (opts.onClick) {
+    svg.addEventListener("click", (evt) => {
+      const u = valueAt(evt);
+      opts.onClick(A.log ? Math.pow(10, u) : u);
+    });
+  }
 }
 
 function renderPlots(m, z, r) {
   const it = (s) => `<tspan font-style="italic">${s}</tspan>`;
   // subscript, followed by text that returns to the baseline
   const sb = (s, after) => `<tspan dy="0.28em" font-size="0.72em">${s}</tspan><tspan dy="-0.28em">${after}</tspan>`;
-  const sbEnd = (s) => `<tspan dy="0.28em" font-size="0.72em">${s}</tspan>`;
 
   const zCurve = [];
   for (let zz = 0.05; zz <= 20.0001; zz += 0.05) {
@@ -463,13 +522,13 @@ function renderPlots(m, z, r) {
       texts: (x, y) => [zText(x), `${y.toFixed(2)} Gyr`],
     },
     {
-      title: `${it("m")}${sb("UV", " − ")}${it("M")}${sbEnd("UV")}`,
+      title: "<i>m</i><sub>UV</sub> − <i>M</i><sub>UV</sub>",
       pts: zCurve.map((c) => [c.z, c.dm]),
       opts: { ...zOpts, y: { label: `${it("m")}${sb("UV", " − ")}${it("M")}${sb("UV", " (mag)")}` }, marker: zMark(r.distmod) },
       texts: (x, y) => [zText(x), `${y.toFixed(2)} mag`],
     },
     {
-      title: `Flux density, ${it("f")}${sbEnd("ν")}`,
+      title: "Flux density, <i>f</i><sub>ν</sub>",
       pts: fluxCurve,
       opts: {
         x: { log: true, label: `${it("f")}${sb("ν", " (nJy)")}` },
@@ -495,6 +554,72 @@ function renderPlots(m, z, r) {
 
   plotsEl.querySelectorAll(".panel svg").forEach((svg, i) => {
     attachHover(svg, metas[i], { texts: panels[i].texts, onClick: panels[i].opts.onClick });
+  });
+}
+
+// R200 and V200 against M200 at the current redshift; both axes logarithmic.
+const LOG_M_MIN = 9, LOG_M_MAX = 14, LOG_M_STEP = 0.01;
+
+function renderHaloPlots(m, z, r) {
+  const it = (s) => `<tspan font-style="italic">${s}</tspan>`;
+  const sb = (s, after) => `<tspan dy="0.28em" font-size="0.72em">${s}</tspan><tspan dy="-0.28em">${after}</tspan>`;
+  const M200 = (after) => `${it("M")}${sb("200", after)}`;
+  const R200 = (after) => `${it("R")}${sb("200", after)}`;
+  const V200 = (after) => `${it("V")}${sb("200", after)}`;
+
+  const Hz = m.H0 * r.Ez;
+  const curve = [];
+  for (let i = 0; i <= Math.round((LOG_M_MAX - LOG_M_MIN) / LOG_M_STEP); i++) {
+    const M = Math.pow(10, LOG_M_MIN + i * LOG_M_STEP);
+    curve.push({ M, ...halo(M, Hz) });
+  }
+
+  const mAxis = {
+    log: true, min: Math.pow(10, LOG_M_MIN), max: Math.pow(10, LOG_M_MAX),
+    label: `${M200(" (")}${it("M")}${sb("⊙", ")")}`,
+  };
+  const zTag = `${it("z")} = ${Number(z.toPrecision(3))}`;
+  const sig3 = (x) => Number(x.toPrecision(3)).toLocaleString();
+  const texts = (M) => {
+    const c = curve[Math.round((Math.log10(M) - LOG_M_MIN) / LOG_M_STEP)];
+    // R200 also as an angle on the sky, via the angular scale at this redshift.
+    // At z = 0 the angular scale vanishes, so there is no angle to quote.
+    const arcsec = c.R200 / r.kpcPerArcsec;
+    const angle = isFinite(arcsec) ? ` (${sig3(arcsec)}″)` : "";
+    return [
+      `${M200(" = " + sci(c.M) + " ")}${it("M")}${sb("⊙", "")}`,
+      R200(" = " + sig3(c.R200) + " kpc" + angle),
+      V200(" = " + sig3(c.V200) + " km/s"),
+    ];
+  };
+
+  const panels = [
+    {
+      // M200 = 100 H(z)^2 R200^3 / G
+      title: eq(`${msub("M", 200)}<mo>=</mo><mn>100</mn>${THIN}` +
+        `${msup(paren(mi("H"), "z"), 2)}${THIN}${msubsup("R", 200, 3)}` +
+        `<mo>/</mo>${mi("G")}`),
+      pts: curve.map((c) => [c.M, c.R200]),
+      opts: { x: mAxis, y: { log: true, label: R200(" (kpc)") }, index: "x", tag: zTag },
+    },
+    {
+      // M200 = V200^3 / (10 G H(z))
+      title: eq(`${msub("M", 200)}<mo>=</mo>` +
+        frac(msubsup("V", 200, 3), `<mn>10</mn>${THIN}${mi("G")}${THIN}${paren(mi("H"), "z")}`)),
+      pts: curve.map((c) => [c.M, c.V200]),
+      opts: { x: mAxis, y: { log: true, label: V200(" (km s⁻¹)") }, index: "x", tag: zTag },
+    },
+  ];
+
+  const metas = [];
+  haloPlotsEl.innerHTML = panels.map((p) => {
+    const { html, meta } = linePlot(p.title, p.pts, p.opts);
+    metas.push(meta);
+    return html;
+  }).join("");
+
+  haloPlotsEl.querySelectorAll(".panel svg").forEach((svg, i) => {
+    attachHover(svg, metas[i], { texts });
   });
 }
 
@@ -557,6 +682,7 @@ function render() {
   );
 
   renderPlots(m, z, r);
+  renderHaloPlots(m, z, r);
   resultsEl.hidden = false;
 }
 
